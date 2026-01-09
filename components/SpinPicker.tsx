@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Vector2D } from '../types';
+import { Vector2D } from '../types.ts';
 
 interface SpinPickerProps {
   offset: Vector2D;
@@ -25,17 +24,14 @@ const SpinPicker: React.FC<SpinPickerProps> = ({ offset, onChange }) => {
         onMouseDown={handleInteraction}
         onMouseMove={(e) => { if (e.buttons === 1) handleInteraction(e); }}
       >
-        {/* 3D Ball Effect */}
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white via-zinc-100 to-zinc-400"></div>
         <div className="absolute top-10 left-10 w-24 h-16 bg-white/40 rounded-full blur-2xl"></div>
         
-        {/* Grids */}
         <div className="absolute top-1/2 left-0 w-full h-[2px] bg-black/5"></div>
         <div className="absolute left-1/2 top-0 w-[2px] h-full bg-black/5"></div>
         <div className="absolute inset-8 rounded-full border-2 border-black/5"></div>
         <div className="absolute inset-20 rounded-full border-2 border-black/5"></div>
 
-        {/* Selected Point (Cue Chalk) */}
         <div 
           className="absolute w-12 h-12 bg-blue-600 rounded-full border-8 border-white shadow-[0_10px_30px_rgba(37,99,235,0.6)] pointer-events-none transform -translate-x-1/2 -translate-y-1/2 transition-all duration-75"
           style={{ left: `${(offset.x + 1) * 50}%`, top: `${(offset.y + 1) * 50}%` }}

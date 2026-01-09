@@ -1,13 +1,12 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Ball, GameState } from "../types";
-import { MAX_POWER } from "../constants";
+import { Ball, GameState } from "../types.ts";
+import { MAX_POWER } from "../constants.ts";
 
 export interface ShotSuggestion {
-  angle: number; // 0 to 360 degrees
-  power: number; // 0 to MAX_POWER
-  spinX: number; // -1 to 1
-  spinY: number; // -1 to 1
+  angle: number; 
+  power: number; 
+  spinX: number; 
+  spinY: number; 
   explanation: string;
 }
 
@@ -42,53 +41,5 @@ export async function getTutorAdvice(balls: Ball[], gameState: GameState): Promi
   } catch (error) {
     console.error("AI Tutor Error:", error);
     return "집중해서 다음 샷을 준비하세요.";
-  }
-}
-
-export async function getShotSuggestion(balls: Ball[], gameState: GameState): Promise<ShotSuggestion | null> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  const cueBall = balls.find(b => b.type === (gameState.currentPlayer === 0 ? 'white' : 'yellow'));
-  const others = balls.filter(b => b.id !== cueBall?.id);
-
-  const prompt = `
-    Calculate the best shot parameters for a billiards game.
-    Table: 800x400.
-    Cue Ball: ${JSON.stringify(cueBall?.pos)}
-    Targets: ${JSON.stringify(others.map(o => ({ id: o.id, pos: o.pos })))}
-    Game Mode: ${gameState.mode}
-    
-    Return a JSON object suggesting:
-    - angle: direction in degrees (0 is right, 90 is down, 180 is left, 270 is up)
-    - power: force value between 5 and ${MAX_POWER}
-    - spinX: side spin (-1 to 1)
-    - spinY: top/bottom spin (-1 to 1)
-    - explanation: short Korean reason for this shot.
-  `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            angle: { type: Type.NUMBER },
-            power: { type: Type.NUMBER },
-            spinX: { type: Type.NUMBER },
-            spinY: { type: Type.NUMBER },
-            explanation: { type: Type.STRING }
-          },
-          required: ["angle", "power", "spinX", "spinY", "explanation"]
-        }
-      }
-    });
-
-    return JSON.parse(response.text || "null");
-  } catch (error) {
-    console.error("AI Suggestion Error:", error);
-    return null;
   }
 }

@@ -1,13 +1,12 @@
-
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Ball, BallType, GamePhase, GameState, Vector2D } from '../types';
+import { Ball, BallType, GamePhase, GameState, Vector2D } from '../types.ts';
 import { 
   TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, COLORS, 
   MAX_POWER 
-} from '../constants';
-import { PhysicsEngine } from '../services/physicsEngine';
-import { vecSub, vecNormalize, vecMag, vecDist, vecMul, vecAdd } from '../services/vectorUtils';
-import { audioService } from '../services/audioService';
+} from '../constants.ts';
+import { PhysicsEngine } from '../services/physicsEngine.ts';
+import { vecSub, vecNormalize } from '../services/vectorUtils.ts';
+import { audioService } from '../services/audioService.ts';
 
 interface Particle {
   x: number;
@@ -84,10 +83,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       
       events.forEach(event => {
         if (event.type === 'ball') {
-          // Check if it's a cue ball involved for sound variation
           const isCue = event.ballIds?.some(id => id === 'white' || id === 'yellow') ?? false;
           audioService.playCollision(event.intensity, isCue);
-          
           onCollisionOccurred(new Set(event.ballIds), 'ball', event.intensity);
           setEffects(prev => [...prev, { x: event.pos.x, y: event.pos.y, life: 1, type: 'ring', color: '#fff' }]);
           addParticles(event.pos.x, event.pos.y, event.intensity > 2.0 ? '#f59e0b' : '#fff', 20, event.intensity * 3);
@@ -146,9 +143,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     const cueLen = 450;
     const grad = ctx.createLinearGradient(0, 0, -cueLen, 0);
-    grad.addColorStop(0, '#fde68a'); // Tip wood
-    grad.addColorStop(0.1, '#78350f'); // Dark wood
-    grad.addColorStop(0.8, '#451a03'); // Grip
+    grad.addColorStop(0, '#fde68a');
+    grad.addColorStop(0.1, '#78350f');
+    grad.addColorStop(0.8, '#451a03');
     grad.addColorStop(1, '#000');
 
     ctx.fillStyle = grad;
@@ -163,16 +160,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = '#1d4ed8'; // Blue chalk tip
+    ctx.fillStyle = '#1d4ed8';
     ctx.fillRect(0, -3, 3, 6);
 
     ctx.restore();
   };
 
   const drawTableBase = (ctx: CanvasRenderingContext2D) => {
-    const padding = 35; // Rail thickness
-    
-    // External frame
+    const padding = 35;
     ctx.save();
     const woodGrad = ctx.createLinearGradient(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
     woodGrad.addColorStop(0, '#2d1b0d');
@@ -185,16 +180,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.fillRect(-padding, -padding, TABLE_WIDTH + padding * 2, TABLE_HEIGHT + padding * 2);
     ctx.restore();
 
-    // Internal Cloth with inner shadow for depth
     ctx.save();
     const clothGrad = ctx.createRadialGradient(TABLE_WIDTH/2, TABLE_HEIGHT/2, 50, TABLE_WIDTH/2, TABLE_HEIGHT/2, TABLE_WIDTH * 0.8);
-    clothGrad.addColorStop(0, '#1a4a2f'); // Brighter center
-    clothGrad.addColorStop(1, '#0c2215'); // Darker edges
+    clothGrad.addColorStop(0, '#1a4a2f');
+    clothGrad.addColorStop(1, '#0c2215');
     
     ctx.fillStyle = clothGrad;
     ctx.fillRect(0, 0, TABLE_WIDTH, TABLE_HEIGHT);
 
-    // Inner bevel shadow
     ctx.strokeStyle = 'rgba(0,0,0,0.5)';
     ctx.lineWidth = 10;
     ctx.shadowBlur = 15;
@@ -202,8 +195,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.strokeRect(-5, -5, TABLE_WIDTH + 10, TABLE_HEIGHT + 10);
     ctx.restore();
 
-    // Diamonds (Sight markers)
-    ctx.fillStyle = '#fef3c7'; // Ivory/Pearl
+    ctx.fillStyle = '#fef3c7';
     ctx.shadowBlur = 4;
     ctx.shadowColor = 'rgba(0,0,0,0.4)';
     
@@ -214,13 +206,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fill();
     };
 
-    // Horizontal markers
     for (let i = 1; i < 8; i++) {
       const x = (TABLE_WIDTH / 8) * i;
       drawDiamond(x, -padding / 2);
       drawDiamond(x, TABLE_HEIGHT + padding / 2);
     }
-    // Vertical markers
     for (let i = 1; i < 4; i++) {
       const y = (TABLE_HEIGHT / 4) * i;
       drawDiamond(-padding / 2, y);
@@ -242,25 +232,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     drawTableBase(ctx);
 
-    // Particles
     particles.forEach(p => {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
       ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fill(); ctx.globalAlpha = 1.0;
     });
 
-    // Prediction & Cue Stick
     const isPreparing = [GamePhase.AIMING, GamePhase.SELECT_SPIN, GamePhase.SELECT_POWER].includes(gameState.phase);
     if (isPreparing && (currentMouse || lockDirection)) {
       const direction = lockDirection || (currentMouse ? vecNormalize(vecSub(cueBall.pos, currentMouse)) : { x: 1, y: 0 });
-      
-      // Use refined prediction with nuance
       const prediction = PhysicsEngine.predict(cueBall, balls.filter(b => b.id !== cueBall.id), direction, Math.max(10, shotPower), spinOffset);
       
-      // Secondary path (faint)
       ctx.beginPath(); ctx.setLineDash([4, 12]); ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 1;
       ctx.moveTo(cueBall.pos.x, cueBall.pos.y); ctx.lineTo(prediction.path[0].x, prediction.path[0].y); ctx.stroke();
       
-      // Main path
       ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = COLORS.PREDICTION_CUE; ctx.lineWidth = 2.5;
       ctx.moveTo(prediction.path[0].x, prediction.path[0].y); prediction.path.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke(); 
       
@@ -280,19 +264,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     }
 
-    // Balls with improved shading
     balls.forEach(ball => {
       const { x, y } = ball.pos;
       const r = ball.radius;
       
-      // Ball Trail
       if (ball.trace && ball.trace.length > 2) {
         ctx.beginPath(); ctx.moveTo(ball.trace[0].x, ball.trace[0].y);
         for (let i = 1; i < ball.trace.length; i++) ctx.lineTo(ball.trace[i].x, ball.trace[i].y);
         ctx.strokeStyle = `rgba(255, 255, 255, 0.08)`; ctx.lineWidth = r * 0.7; ctx.lineCap = 'round'; ctx.stroke();
       }
 
-      // Ball Shadow
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(x + 2, y + 2, r, r * 0.6, 0.2, 0, Math.PI * 2);
@@ -300,7 +281,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fill();
       ctx.restore();
 
-      // Ball Body
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
       let baseColor = ball.type === BallType.CUE_YELLOW ? COLORS.OPPONENT : (ball.type.startsWith('red') ? COLORS.TARGET : '#fff');
       
@@ -312,7 +292,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       
       ctx.fillStyle = grad; ctx.fill();
 
-      // Highlight
       ctx.beginPath();
       ctx.ellipse(x - r * 0.4, y - r * 0.4, r * 0.3, r * 0.2, Math.PI / 4, 0, Math.PI * 2);
       const highlight = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, 0, x - r * 0.4, y - r * 0.4, r * 0.3);

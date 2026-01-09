@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import GameCanvas from './components/GameCanvas';
-import SpinPicker from './components/SpinPicker';
-import { Ball, BallType, GamePhase, GameState, Vector2D, GameMode, Achievement } from './types';
-import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, MAX_POWER } from './constants';
-import { getTutorAdvice, getShotSuggestion } from './services/aiTutor';
-import { audioService } from './services/audioService';
-import { PhysicsEngine } from './services/physicsEngine';
+import GameCanvas from './components/GameCanvas.tsx';
+import SpinPicker from './components/SpinPicker.tsx';
+import { Ball, BallType, GamePhase, GameState, Vector2D, GameMode } from './types.ts';
+import { TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, MAX_POWER } from './constants.ts';
+import { getTutorAdvice } from './services/aiTutor.ts';
+import { audioService } from './services/audioService.ts';
+import { PhysicsEngine } from './services/physicsEngine.ts';
 
 const getInitialBalls = (mode: GameMode): Ball[] => {
   const common = [
@@ -66,7 +65,6 @@ const App: React.FC = () => {
     setGameState(prev => ({ ...prev, phase: GamePhase.MOVING }));
   }, [gameState.phase, gameState.currentPlayer, balls, lastDirection, shotPower, spinOffset]);
 
-  // Handle Mouse Wheel for Power
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
       if (gameState.phase !== GamePhase.SELECT_POWER && gameState.phase !== GamePhase.AIMING) return;
@@ -156,7 +154,6 @@ const App: React.FC = () => {
            </div>
         )}
 
-        {/* Vertical Power Gauge on the Right */}
         {(gameState.phase === GamePhase.SELECT_POWER || gameState.phase === GamePhase.AIMING) && (
           <div className="absolute right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40">
             <div className="flex flex-col items-center gap-1">
@@ -174,10 +171,6 @@ const App: React.FC = () => {
                 className="w-full bg-gradient-to-t from-emerald-500 via-yellow-400 to-red-500 shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all duration-75" 
                 style={{ height: `${(shotPower/MAX_POWER)*100}%` }}
               />
-            </div>
-            <div className="text-[8px] font-bold text-zinc-500 uppercase flex flex-col items-center opacity-60">
-               <svg className="w-4 h-4 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10-4.477-10-10-10zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm1-13h-2v4h-3l4 4 4-4h-3v-4z"/></svg>
-               Scroll to Adjust
             </div>
           </div>
         )}

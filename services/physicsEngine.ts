@@ -1,13 +1,12 @@
-
-import { Ball, Vector2D } from '../types';
+import { Ball, Vector2D } from '../types.ts';
 import { 
   TABLE_WIDTH, TABLE_HEIGHT, BALL_RADIUS, FRICTION, SPIN_FRICTION,
   WALL_BOUNCE, BALL_BOUNCE, MIN_VELOCITY, SIDE_SPIN_CUSHION_FACTOR,
   TOP_SPIN_FOLLOW_FACTOR
-} from '../constants';
+} from '../constants.ts';
 import { 
   vecAdd, vecSub, vecMul, vecMag, vecNormalize, vecDot, vecDist 
-} from './vectorUtils';
+} from './vectorUtils.ts';
 
 export interface CollisionEvent {
   type: 'ball' | 'wall';
@@ -18,19 +17,12 @@ export interface CollisionEvent {
 }
 
 export class PhysicsEngine {
-  /**
-   * Calculates the complex interaction between the cue stick and cue ball.
-   * Handles "Squirt" (deflection), energy conservation (speed loss to rotation),
-   * and power-scaled spin transfer.
-   */
   static calculateCueImpact(direction: Vector2D, power: number, spinOffset: Vector2D): {
     velocity: Vector2D,
     sideSpin: number,
     topSpin: number
   } {
-    // 1. Squirt (Deflection): Side spin causes the cue ball to deviate slightly 
-    // in the opposite direction of the spin impact.
-    const squirtFactor = 0.15; // Max deviation in radians
+    const squirtFactor = 0.15;
     const angleOffset = -spinOffset.x * squirtFactor; 
     const currentAngle = Math.atan2(direction.y, direction.x);
     const adjustedAngle = currentAngle + angleOffset;
@@ -40,17 +32,13 @@ export class PhysicsEngine {
       y: Math.sin(adjustedAngle)
     };
 
-    // 2. Velocity Efficiency: Hitting off-center transfers some energy to rotation, 
-    // reducing the linear launch velocity.
     const offCenterDist = Math.sqrt(spinOffset.x ** 2 + spinOffset.y ** 2);
     const velocityEfficiency = 1.0 - (offCenterDist * 0.25); 
     const launchPower = power * velocityEfficiency;
 
-    // 3. Spin Transfer: Spin magnitude is proportional to both the offset 
-    // and the force of the strike.
     const spinTransferRatio = 0.45;
     const sideSpin = spinOffset.x * power * spinTransferRatio;
-    const topSpin = -spinOffset.y * power * spinTransferRatio; // UI Y-offset is positive downwards
+    const topSpin = -spinOffset.y * power * spinTransferRatio;
 
     return {
       velocity: vecMul(adjustedDirection, launchPower),
