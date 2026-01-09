@@ -1,0 +1,5 @@
+{
+  "name": "Web Billiards AI Tutor",
+  "description": "A sophisticated 4-ball billiards simulator featuring a custom physics engine, real-time trajectory prediction, ghost ball guidance, and an AI tutor powered by Gemini.",
+  "requestFramePermissions": []
+}
