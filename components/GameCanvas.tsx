@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Ball, BallType, GamePhase, GameState, Vector2D } from '../types.ts';
 import { 
@@ -5,7 +6,8 @@ import {
   MAX_POWER 
 } from '../constants.ts';
 import { PhysicsEngine } from '../services/physicsEngine.ts';
-import { vecSub, vecNormalize } from '../services/vectorUtils.ts';
+// Added missing vecMag import
+import { vecSub, vecNormalize, vecMag } from '../services/vectorUtils.ts';
 import { audioService } from '../services/audioService.ts';
 
 interface Particle {
@@ -58,10 +60,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const [effects, setEffects] = useState<Effect[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
   const [shake, setShake] = useState(0);
+  const [physicsHUD, setPhysicsHUD] = useState<{thickness: number, angle: number} | null>(null);
   const requestRef = useRef<number>(undefined);
 
   const cueType = gameState.currentPlayer === 0 ? BallType.CUE_WHITE : BallType.CUE_YELLOW;
   const cueBall = balls.find(b => b.type === cueType)!;
+
+  useEffect(() => {
+    if (gameState.phase === GamePhase.AIMING) {
+      setLockDirection(null);
+    }
+  }, [gameState.phase]);
 
   const addParticles = (x: number, y: number, color: string, count: number, speed: number) => {
     const newParticles: Particle[] = [];
@@ -195,27 +204,53 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.strokeRect(-5, -5, TABLE_WIDTH + 10, TABLE_HEIGHT + 10);
     ctx.restore();
 
-    ctx.fillStyle = '#fef3c7';
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 10px "Inter"';
     
     const diamondSize = 3;
-    const drawDiamond = (x: number, y: number) => {
+    const drawPoint = (x: number, y: number, label?: string, isVertical: boolean = false) => {
       ctx.beginPath();
       ctx.arc(x, y, diamondSize, 0, Math.PI * 2);
+      ctx.fillStyle = '#fef3c7';
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0,0,0,0.4)';
       ctx.fill();
+
+      if (label) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.6)'; 
+        const lx = isVertical ? (x < 0 ? x - 8 : x + 8) : x;
+        const ly = isVertical ? y : (y < 0 ? y - 8 : y + 8);
+        ctx.fillText(label, lx, ly);
+      }
     };
 
-    for (let i = 1; i < 8; i++) {
+    for (let i = 0; i <= 8; i++) {
       const x = (TABLE_WIDTH / 8) * i;
-      drawDiamond(x, -padding / 2);
-      drawDiamond(x, TABLE_HEIGHT + padding / 2);
+      const label = (i * 10).toString();
+      if (i > 0 && i < 8) {
+          drawPoint(x, -padding / 2, label);
+          drawPoint(x, TABLE_HEIGHT + padding / 2, label);
+      } else {
+          drawPoint(x, -padding / 2);
+          drawPoint(x, TABLE_HEIGHT + padding / 2);
+      }
     }
-    for (let i = 1; i < 4; i++) {
+
+    for (let i = 0; i <= 4; i++) {
       const y = (TABLE_HEIGHT / 4) * i;
-      drawDiamond(-padding / 2, y);
-      drawDiamond(TABLE_WIDTH + padding / 2, y);
+      const label = (i * 10).toString();
+      if (i > 0 && i < 4) {
+          drawPoint(-padding / 2, y, label, true);
+          drawPoint(TABLE_WIDTH + padding / 2, y, label, true);
+      } else {
+          drawPoint(-padding / 2, y);
+          drawPoint(TABLE_WIDTH + padding / 2, y);
+      }
     }
+    ctx.restore();
   };
 
   const draw = useCallback(() => {
@@ -232,25 +267,40 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     drawTableBase(ctx);
 
-    particles.forEach(p => {
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
-      ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fill(); ctx.globalAlpha = 1.0;
-    });
-
     const isPreparing = [GamePhase.AIMING, GamePhase.SELECT_SPIN, GamePhase.SELECT_POWER].includes(gameState.phase);
+    let hudData = null;
+
     if (isPreparing && (currentMouse || lockDirection)) {
       const direction = lockDirection || (currentMouse ? vecNormalize(vecSub(cueBall.pos, currentMouse)) : { x: 1, y: 0 });
       const prediction = PhysicsEngine.predict(cueBall, balls.filter(b => b.id !== cueBall.id), direction, Math.max(10, shotPower), spinOffset);
       
-      ctx.beginPath(); ctx.setLineDash([4, 12]); ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 1;
-      ctx.moveTo(cueBall.pos.x, cueBall.pos.y); ctx.lineTo(prediction.path[0].x, prediction.path[0].y); ctx.stroke();
+      if (prediction.thickness) hudData = {thickness: prediction.thickness, angle: prediction.angle || 0};
+
+      // 궤적 그리기 (커브 포함)
+      ctx.beginPath(); 
+      ctx.setLineDash([4, 12]); 
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'; 
+      ctx.lineWidth = 1;
+      ctx.moveTo(cueBall.pos.x, cueBall.pos.y); 
+      ctx.lineTo(prediction.path[0].x, prediction.path[0].y); 
+      ctx.stroke();
       
-      ctx.beginPath(); ctx.setLineDash([]); ctx.strokeStyle = COLORS.PREDICTION_CUE; ctx.lineWidth = 2.5;
-      ctx.moveTo(prediction.path[0].x, prediction.path[0].y); prediction.path.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke(); 
+      ctx.beginPath(); 
+      ctx.setLineDash([]); 
+      ctx.strokeStyle = COLORS.PREDICTION_CUE; 
+      ctx.lineWidth = 2.5;
+      ctx.moveTo(prediction.path[0].x, prediction.path[0].y); 
+      prediction.path.forEach(p => ctx.lineTo(p.x, p.y)); 
+      ctx.stroke(); 
       
       if (prediction.targetPath) {
-        ctx.beginPath(); ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
-        ctx.moveTo(prediction.targetPath[0].x, prediction.targetPath[0].y); prediction.targetPath.forEach(p => ctx.lineTo(p.x, p.y)); ctx.stroke();
+        ctx.beginPath(); 
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)'; 
+        ctx.lineWidth = 2; 
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(prediction.targetPath[0].x, prediction.targetPath[0].y); 
+        prediction.targetPath.forEach(p => ctx.lineTo(p.x, p.y)); 
+        ctx.stroke();
         ctx.setLineDash([]);
       }
 
@@ -263,6 +313,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         drawCueStick(ctx, cueBall.pos, direction, shotPower, gameState.phase === GamePhase.SELECT_POWER);
       }
     }
+    setPhysicsHUD(hudData);
 
     balls.forEach(ball => {
       const { x, y } = ball.pos;
@@ -275,35 +326,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(x + 2, y + 2, r, r * 0.6, 0.2, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x + 2, y + 2, r, r * 0.6, 0.2, 0, Math.PI * 2); ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
       ctx.restore();
 
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
       let baseColor = ball.type === BallType.CUE_YELLOW ? COLORS.OPPONENT : (ball.type.startsWith('red') ? COLORS.TARGET : '#fff');
-      
       const grad = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, r * 0.1, x, y, r);
-      grad.addColorStop(0, '#fff'); 
-      grad.addColorStop(0.2, baseColor); 
-      grad.addColorStop(0.8, baseColor); 
-      grad.addColorStop(1, '#000');
-      
+      grad.addColorStop(0, '#fff'); grad.addColorStop(0.2, baseColor); grad.addColorStop(0.8, baseColor); grad.addColorStop(1, '#000');
       ctx.fillStyle = grad; ctx.fill();
 
-      ctx.beginPath();
-      ctx.ellipse(x - r * 0.4, y - r * 0.4, r * 0.3, r * 0.2, Math.PI / 4, 0, Math.PI * 2);
-      const highlight = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, 0, x - r * 0.4, y - r * 0.4, r * 0.3);
-      highlight.addColorStop(0, 'rgba(255,255,255,0.6)');
-      highlight.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = highlight;
-      ctx.fill();
-    });
-
-    effects.forEach(e => {
-      if (e.type === 'ring') {
-        ctx.beginPath(); ctx.arc(e.x, e.y, (1-e.life) * 100, 0, Math.PI * 2); ctx.strokeStyle = `rgba(255,255,255,${e.life})`; ctx.lineWidth = 3 * e.life; ctx.stroke();
+      // 공의 회전축 시각화 (사이드 스핀 반영)
+      // Fix: vecMag is now properly imported from vectorUtils
+      if (vecMag(ball.vel) > 0.1) {
+        ctx.beginPath();
+        const spinAngle = Math.atan2(ball.vel.y, ball.vel.x);
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(spinAngle) * r, y + Math.sin(spinAngle) * r);
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.stroke();
       }
     });
 
@@ -321,17 +360,30 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         onContextMenu={(e) => {
             e.preventDefault();
             if (gameState.phase === GamePhase.SELECT_POWER) onStateChange({ phase: GamePhase.SELECT_SPIN });
-            else if (gameState.phase === GamePhase.SELECT_SPIN) { setLockDirection(null); onStateChange({ phase: GamePhase.AIMING }); }
+            else if (gameState.phase === GamePhase.SELECT_SPIN) onStateChange({ phase: GamePhase.AIMING });
         }}
         className="relative z-10 cursor-crosshair rounded-[2rem]" 
       />
       
+      {physicsHUD && gameState.phase === GamePhase.AIMING && (
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-30 flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-emerald-500/30 flex items-center gap-3">
+             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Thickness</span>
+             <span className="text-xl font-black italic">{Math.round(physicsHUD.thickness * 8)}/8</span>
+          </div>
+          <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-emerald-500/30 flex items-center gap-3">
+             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Sep. Angle</span>
+             <span className="text-xl font-black italic">{Math.round(physicsHUD.angle)}°</span>
+          </div>
+        </div>
+      )}
+
       {gameState.phase === GamePhase.AIMING && (
         <div className="absolute top-14 right-14 z-20 bg-black/80 backdrop-blur-md p-5 rounded-[2rem] border border-white/10 flex flex-col items-center gap-3 shadow-2xl">
             <div className="w-14 h-14 rounded-full bg-white relative overflow-hidden border-2 border-zinc-800 shadow-inner">
                <div className="absolute w-4 h-4 bg-blue-600 rounded-full shadow-lg border-2 border-white" style={{ left: `${(spinOffset.x + 1) * 50}%`, top: `${(spinOffset.y + 1) * 50}%`, transform: 'translate(-50%, -50%)' }}></div>
             </div>
-            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Active Spin</span>
+            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Strike Point</span>
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Ball, GameState } from "../types.ts";
 import { MAX_POWER } from "../constants.ts";
@@ -19,17 +20,20 @@ export async function getTutorAdvice(balls: Ball[], gameState: GameState): Promi
   }));
 
   const prompt = `
-    You are a professional billiards coach. 
-    Analyze the current 4-ball game state and provide one brief sentence of strategic advice.
-    The goal is to hit the two red balls with the cue ball.
+    당신은 세계적인 당구 코치입니다.
+    현재 4구 당구 게임의 물리적 상태를 분석하여 한 문장의 짧고 강렬한 조언을 제공하세요.
     
-    Current state:
-    - Cue Ball: ${JSON.stringify(ballData.find(b => b.type === 'white'))}
-    - Opponent Ball: ${JSON.stringify(ballData.find(b => b.type === 'yellow'))}
-    - Red Balls: ${JSON.stringify(ballData.filter(b => b.type.startsWith('red')))}
-    - Player Scores: ${JSON.stringify(gameState.scores)} (Current Player: ${gameState.currentPlayer})
+    조언의 핵심 내용:
+    1. 두께 조절 (예: 1/2 두께로 부드럽게)
+    2. 당점과 회전 (예: 상단 회전으로 밀어치기, 하단 회전으로 끌어치기)
+    3. 입사각과 반사각 원리 (예: 쿠션 반사각을 이용한 횡단샷)
     
-    Instruction: Provide a punchy, helpful tip in Korean.
+    현재 상태:
+    - 수구: ${JSON.stringify(ballData.find(b => b.type === 'white'))}
+    - 적구들: ${JSON.stringify(ballData.filter(b => b.type.startsWith('red')))}
+    - 상대공: ${JSON.stringify(ballData.find(b => b.type === 'yellow'))}
+    
+    규칙: 반드시 한국어로, 선수에게 직접 말하듯 친근하면서도 전문적인 팁을 제공하세요.
   `;
 
   try {
@@ -37,7 +41,7 @@ export async function getTutorAdvice(balls: Ball[], gameState: GameState): Promi
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    return response.text || "조준을 신중히 하세요!";
+    return response.text || "두께를 신중히 결정하세요!";
   } catch (error) {
     console.error("AI Tutor Error:", error);
     return "집중해서 다음 샷을 준비하세요.";

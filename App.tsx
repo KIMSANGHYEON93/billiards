@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import SpinPicker from './components/SpinPicker.tsx';
@@ -83,8 +84,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (gameState.phase === GamePhase.PROCESSING) {
       const opponentCue = gameState.currentPlayer === 0 ? 'yellow' : 'white';
+      // Fix: Explicitly type 'id' as string to avoid 'unknown' type error in Array.from(shotCollisions).filter
       const scored = gameState.mode === GameMode.SAGU 
-        ? Array.from(shotCollisions).filter(id => id.startsWith('red')).length >= 2 && !shotCollisions.has(opponentCue)
+        ? Array.from(shotCollisions).filter((id: string) => id.startsWith('red')).length >= 2 && !shotCollisions.has(opponentCue)
         : shotCollisions.has(opponentCue) && shotCollisions.has('red1') && cushionCount >= 3;
 
       if (scored) {
@@ -137,13 +139,20 @@ const App: React.FC = () => {
              <div className="bg-zinc-900 p-16 rounded-[4rem] border-2 border-white/10 shadow-2xl flex flex-col items-center gap-12">
                 <h3 className="text-3xl font-black italic uppercase tracking-widest text-emerald-500">Set Strike Point</h3>
                 <SpinPicker offset={spinOffset} onChange={setSpinOffset} />
-                <button 
-                  onClick={() => setGameState(p => ({ ...p, phase: GamePhase.SELECT_POWER }))}
-                  className="bg-emerald-500 text-black px-16 py-6 rounded-full font-black text-xl uppercase shadow-2xl hover:bg-emerald-400 transition-all"
-                >
-                  Confirm Spin
-                </button>
-                <button onClick={() => setGameState(p => ({ ...p, phase: GamePhase.AIMING }))} className="text-zinc-500 font-bold uppercase text-xs tracking-widest hover:text-white transition-all">Back to Aiming</button>
+                <div className="flex flex-col gap-4 w-full">
+                  <button 
+                    onClick={() => setGameState(p => ({ ...p, phase: GamePhase.SELECT_POWER }))}
+                    className="bg-emerald-500 text-black px-16 py-6 rounded-full font-black text-xl uppercase shadow-2xl hover:bg-emerald-400 transition-all"
+                  >
+                    Confirm Spin
+                  </button>
+                  <button 
+                    onClick={() => setGameState(p => ({ ...p, phase: GamePhase.AIMING }))} 
+                    className="text-zinc-500 font-bold uppercase text-xs tracking-widest hover:text-white transition-all py-2"
+                  >
+                    ← Back to Aiming
+                  </button>
+                </div>
              </div>
           </div>
         )}
@@ -155,7 +164,7 @@ const App: React.FC = () => {
         )}
 
         {(gameState.phase === GamePhase.SELECT_POWER || gameState.phase === GamePhase.AIMING) && (
-          <div className="absolute right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-40">
+          <div className="absolute right-12 top-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-40">
             <div className="flex flex-col items-center gap-1">
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Power</span>
               <span className="text-2xl font-black italic">{Math.round((shotPower/MAX_POWER)*100)}%</span>
@@ -172,6 +181,17 @@ const App: React.FC = () => {
                 style={{ height: `${(shotPower/MAX_POWER)*100}%` }}
               />
             </div>
+            {gameState.phase === GamePhase.SELECT_POWER && (
+              <button 
+                onClick={() => setGameState(p => ({ ...p, phase: GamePhase.AIMING }))}
+                className="bg-zinc-800 hover:bg-white hover:text-black text-white p-4 rounded-full transition-all shadow-xl group"
+                title="Back to Aiming"
+              >
+                <svg className="w-6 h-6 rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+            )}
           </div>
         )}
 
